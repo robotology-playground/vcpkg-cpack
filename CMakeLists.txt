@@ -23,7 +23,7 @@ endif()
 # "Install" in CMake sense the requested ports 
 foreach(port ${VCPKG_BIG_PORTS})
   install(DIRECTORY ${VCPKG_ROOT}/packages/${port}_${VCPKG_BIG_TRIPLET}
-          DESTINATION ${CMAKE_INSTALL_PREFIX}
+          DESTINATION .
           COMPONENT ${port})
 endforeach()
 
