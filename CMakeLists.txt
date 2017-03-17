@@ -3,7 +3,7 @@
 # CopyPolicy: Released under the terms of the MIT license, see LICENSE
 
 cmake_minimum_required(VERSION 3.5)
-project(vcpkg-binary-installer-generator)
+project(vcpkg-binary-installer-generator NONE)
 # The prefix used for all the binary installer generator specific variables will be VCPKG_BIG
 
 # Find vcpkg root directory
@@ -21,9 +21,9 @@ if(NOT VCPKG_BIG_TRIPLET)
 endif()
 
 # "Install" in CMake sense the requested ports 
-foreach(port IN VCPKG_BIG_PORTS)
+foreach(port ${VCPKG_BIG_PORTS})
   install(DIRECTORY ${VCPKG_ROOT}/packages/${port}_${VCPKG_BIG_TRIPLET}
-          DESTINATION ${CMAKE_INSTALL_PREFIX}
+          DESTINATION .
           COMPONENT ${port})
 endforeach()
 
