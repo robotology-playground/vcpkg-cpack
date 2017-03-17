@@ -3,7 +3,7 @@
 # CopyPolicy: Released under the terms of the MIT license, see LICENSE
 
 cmake_minimum_required(VERSION 3.5)
-project(vcpkg-binary-installer-generator)
+project(vcpkg-binary-installer-generator NONE)
 # The prefix used for all the binary installer generator specific variables will be VCPKG_BIG
 
 # Find vcpkg root directory
