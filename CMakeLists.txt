@@ -45,15 +45,19 @@ foreach(triplet ${VCPKG_BIG_TARGET_TRIPLETS})
   endif()
 endforeach()
 
+# User configuration 
+option(VCPKG_BIG_CREATE_ONLINE_INSTALLER ON "Set to ON to create a online installer, OFF for an offline installer.")
+
 
 # Configure CPack 
-set(CPACK_PACKAGE_NAME "robotology")
+set(CPACK_PACKAGE_NAME "robotology-additional-dependencies")
 set(CPACK_PACKAGE_VENDOR "iCub Facility, Istituto Italiano di Tecnologia (IIT)")
-set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Robotology")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Robotology Additional Dependencies")
+string(REPLACE "-" "_" CPACK_PACKAGE_NAME_UNDERSCORES ${CPACK_PACKAGE_NAME})
 
 set(CPACK_PACKAGE_VERSION_MAJOR "0")
-set(CPACK_PACKAGE_VERSION_MINOR "0")
-set(CPACK_PACKAGE_VERSION_PATCH "2")
+set(CPACK_PACKAGE_VERSION_MINOR "2")
+set(CPACK_PACKAGE_VERSION_PATCH "0")
 set(CPACK_PACKAGE_VERSION "${CPACK_PACKAGE_VERSION_MAJOR}.${CPACK_PACKAGE_VERSION_MINOR}.${CPACK_PACKAGE_VERSION_PATCH}")
 
 set(CPACK_GENERATOR IFW)
@@ -70,26 +74,26 @@ endif()
 # If not set, all components will be merged in the group
 set(CPACK_COMPONENTS_GROUPING IGNORE)
 
-set(CPACK_PACKAGE_INSTALL_DIRECTORY "robotology")
-set(CPACK_IFW_PACKAGE_MAINTENANCE_TOOL_NAME "robotology-maintenancetool")
-set(CPACK_IFW_PACKAGE_MAINTENANCE_TOOL_INI_FILE "robotology-maintenancetool.ini")
-set(CPACK_IFW_PACKAGE_NAME "Robotology")
+set(CPACK_PACKAGE_INSTALL_DIRECTORY ${CPACK_PACKAGE_NAME})
+set(CPACK_IFW_PACKAGE_MAINTENANCE_TOOL_NAME "${CPACK_PACKAGE_NAME}-maintenancetool")
+set(CPACK_IFW_PACKAGE_MAINTENANCE_TOOL_INI_FILE "${CPACK_PACKAGE_NAME}-maintenancetool.ini")
+set(CPACK_IFW_PACKAGE_NAME ${CPACK_PACKAGE_DESCRIPTION_SUMMARY})
 set(CPACK_IFW_PACKAGE_WIZARD_DEFAULT_WIDTH 600)
 set(CPACK_IFW_PACKAGE_WIZARD_DEFAULT_HEIGHT 600)
 
 # See https://gitlab.kitware.com/cmake/cmake/issues/16723
-set(CPACK_IFW_DOWNLOAD_ALL ON)
+set(CPACK_IFW_DOWNLOAD_ALL ${VCPKG_BIG_CREATE_ONLINE_INSTALLER})
 
 include(CPack)
 include(CPackIFW)
 
 # Add root component
 cpack_add_component_group(root
-                          DISPLAY_NAME "Robotology"
-                          DESCRIPTION "Robotology"
+                          DISPLAY_NAME ${CPACK_PACKAGE_DESCRIPTION_SUMMARY}
+                          DESCRIPTION ${CPACK_PACKAGE_DESCRIPTION_SUMMARY}
                           EXPANDED)
 cpack_ifw_configure_component_group(root
-                                    NAME org.robotology.installer)
+                                    NAME org.${CPACK_PACKAGE_NAME_UNDERSCORES}.installer)
 set(CPACK_IFW_PACKAGE_GROUP root)
 
 
@@ -205,10 +209,6 @@ function(find_installed_ports var)
 endfunction()
 
 
-
-
-
-
 if(NOT DEFINED VCPKG_BIG_TARGET_PORTS)
   find_installed_ports(target_ports)
   set(VCPKG_BIG_TARGET_PORTS ${target_ports} CACHE STRING "Ports to include in the package")
@@ -227,7 +227,7 @@ foreach(triplet ${VCPKG_BIG_TARGET_TRIPLETS})
                               DESCRIPTION "${triplet} triplet"
                               PARENT_GROUP root)
     cpack_ifw_configure_component_group(${triplet_comp}
-                                        NAME org.robotology.installer.${triplet_comp})
+                                        NAME org.${CPACK_PACKAGE_NAME_UNDERSCORES}.installer.${triplet_comp})
   else()
     set(group root)
   endif()
@@ -323,24 +323,48 @@ foreach(triplet ${VCPKG_BIG_TARGET_TRIPLETS})
     endif()
 
     # Add a CPack component
+	set(component_options "")
+	if(VCPKG_BIG_CREATE_ONLINE_INSTALLER)
+	  list(APPEND _component_options DOWNLOADED)
+	  list(APPEND _component_options DISABLED)
+	endif()
     cpack_add_component(${component}_${triplet_comp}
                         DISPLAY_NAME ${port}
                         DESCRIPTION "${description}"
-                        DISABLED
                         GROUP ${group}
                         DEPENDS ${depends}
-                        DOWNLOADED
+                        ${component_options}
                         ${hidden})
     cpack_ifw_configure_component(${component}_${triplet_comp}
-                                  NAME org.robotology.installer.${triplet_comp}.${component}
+                                  NAME org.${CPACK_PACKAGE_NAME_UNDERSCORES}.installer.${triplet_comp}.${component}
                                   VERSION ${version}
                                   RELEASE_DATE ${date}
                                   LICENSES ${port}-${triplet} "${CMAKE_BINARY_DIR}/Licenses/${port}-${triplet}")
   endforeach()
+  
+  message(STATUS "Adding env variable component")
+  # Install a dummy file in the component to make sure that it is actually generated 
+  file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/dummy.txt "Dummy file")
+  install(FILES ${CMAKE_CURRENT_BINARY_DIR}/dummy.txt
+          DESTINATION ${triplet}
+          COMPONENT update_env_variables_${triplet_comp})
+  
+  # Create custom component to manage enviromental variables for each triplet 
+  cpack_add_component(update_env_variables_${triplet_comp}
+                      DISPLAY_NAME "Update Enviromental Variables for ${triplet_comp}"
+                      DESCRIPTION  "Update Enviromental Variables to automatically use the installed software for triplet ${triplet_comp}."
+                      GROUP ${group})
+  cpack_ifw_configure_component(update_env_variables_${triplet_comp}
+                                NAME org.${CPACK_PACKAGE_NAME_UNDERSCORES}.installer.${triplet_comp}.update_env_variables
+                                VERSION ${CPACK_PACKAGE_VERSION}
+                                SCRIPT update-env-variables.qs)
+
 endforeach()
 
 # Configure the repository
-cpack_ifw_add_repository(robotology-repository
-                         # URL FIXME insert the real URL
-                         URL "file:///${CMAKE_BINARY_DIR}/_CPack_Packages/${CPACK_SYSTEM_NAME}/IFW/${CPACK_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}-${CPACK_SYSTEM_NAME}/repository"
-                         DISPLAY_NAME "Robotology Repository")
+if (VCPKG_BIG_CREATE_ONLINE_INSTALLER)
+  cpack_ifw_add_repository(${CPACK_PACKAGE_NAME}-repository
+                           # URL FIXME insert the real URL
+                           URL "file:///${CMAKE_BINARY_DIR}/_CPack_Packages/${CPACK_SYSTEM_NAME}/IFW/${CPACK_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}-${CPACK_SYSTEM_NAME}/repository"
+                           DISPLAY_NAME  ${CPACK_PACKAGE_DESCRIPTION_SUMMARY})
+endif()
