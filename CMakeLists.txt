@@ -56,11 +56,11 @@ set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Robotology Additional Dependencies")
 string(REPLACE "-" "_" CPACK_PACKAGE_NAME_UNDERSCORES ${CPACK_PACKAGE_NAME})
 
 set(CPACK_PACKAGE_VERSION_MAJOR "0")
-set(CPACK_PACKAGE_VERSION_MINOR "2")
+set(CPACK_PACKAGE_VERSION_MINOR "3")
 set(CPACK_PACKAGE_VERSION_PATCH "0")
 set(CPACK_PACKAGE_VERSION "${CPACK_PACKAGE_VERSION_MAJOR}.${CPACK_PACKAGE_VERSION_MINOR}.${CPACK_PACKAGE_VERSION_PATCH}")
 
-set(CPACK_GENERATOR IFW)
+set(CPACK_GENERATOR "IFW;ZIP")
 
 if(WIN32 AND CMAKE_GENERATOR MATCHES "^Visual Studio")
   if(CMAKE_GENERATOR_PLATFORM MATCHES "x64" OR CMAKE_GENERATOR MATCHES "Win64")
@@ -344,8 +344,8 @@ foreach(triplet ${VCPKG_BIG_TARGET_TRIPLETS})
   
   message(STATUS "Adding env variable component")
   # Install a dummy file in the component to make sure that it is actually generated 
-  file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/dummy.txt "Dummy file")
-  install(FILES ${CMAKE_CURRENT_BINARY_DIR}/dummy.txt
+  install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/addPathsToEnvVariables.ps1 
+                ${CMAKE_CURRENT_SOURCE_DIR}/removePathsFromEnvVariables.ps1
           DESTINATION ${triplet}
           COMPONENT update_env_variables_${triplet_comp})
   
