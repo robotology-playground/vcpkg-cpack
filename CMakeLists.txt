@@ -1,10 +1,10 @@
-# Copyright: (C) 2017 Silvio Traversaro
+# Copyright: (C) 2018 Silvio Traversaro
 # Copyright: (C) 2017 Daniele E. Domenichelli
 # Authors: Silvio Traversaro, Daniele E. Domenichelli
 # CopyPolicy: Released under the terms of the MIT license, see LICENSE
 
 cmake_minimum_required(VERSION 3.5)
-project(robotology_installer NONE)
+project(vcpkg_cpack NONE)
 
 find_package(GIT)
 
@@ -33,34 +33,29 @@ unset(default_triplet)
 if(DEFINED VCPKG_TARGET_TRIPLET)
   set(default_triplet ${VCPKG_TARGET_TRIPLET})
 endif()
-set(VCPKG_BIG_TARGET_TRIPLETS "${default_triplet}" CACHE STRING "Triplets to support in the installer")
+set(VCPKG_CPACK_TARGET_TRIPLETS "${default_triplet}" CACHE STRING "vcpkg triplets to support in the installer")
 
-if(NOT VCPKG_BIG_TARGET_TRIPLETS)
+# User configuration 
+option(VCPKG_CPACK_IFW_CREATE_ONLINE_INSTALLER ON "If using the IFW generator, set to ON to create a online installer, OFF for an offline installer.")
+
+set(CPACK_PACKAGE_NAME "vcpkg-cpack-generated-installer" CACHE STRING "CPack Package Name")
+set(CPACK_PACKAGE_VENDOR "vcpkg-cpack Vendor" CACHE STRING "CPack Package Vendor")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "vcpkg-cpack Description Summary" CACHE STRING "CPack Package Description summary")
+set(CPACK_GENERATOR "IFW;ZIP" CACHE STRING ";-separated list of CPack generators to use (currently supported generators: IFW, ZIP)")
+
+# Process inputs 
+string(REPLACE "-" "_" CPACK_PACKAGE_NAME_UNDERSCORES ${CPACK_PACKAGE_NAME})
+set(CPACK_PACKAGE_VERSION "${CPACK_PACKAGE_VERSION_MAJOR}.${CPACK_PACKAGE_VERSION_MINOR}.${CPACK_PACKAGE_VERSION_PATCH}")
+
+if(NOT VCPKG_CPACK_TARGET_TRIPLETS)
   message(FATAL_ERROR "No valid triplets defined")
 endif()
 
-foreach(triplet ${VCPKG_BIG_TARGET_TRIPLETS})
+foreach(triplet ${VCPKG_CPACK_TARGET_TRIPLETS})
   if(NOT EXISTS "${VCPKG_ROOT_DIR}/triplets/${triplet}.cmake")
     message(FATAL_ERROR "\"${triplet}\" is not a valid triplet")
   endif()
 endforeach()
-
-# User configuration 
-option(VCPKG_BIG_CREATE_ONLINE_INSTALLER ON "Set to ON to create a online installer, OFF for an offline installer.")
-
-
-# Configure CPack 
-set(CPACK_PACKAGE_NAME "robotology-additional-dependencies")
-set(CPACK_PACKAGE_VENDOR "iCub Facility, Istituto Italiano di Tecnologia (IIT)")
-set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Robotology Additional Dependencies")
-string(REPLACE "-" "_" CPACK_PACKAGE_NAME_UNDERSCORES ${CPACK_PACKAGE_NAME})
-
-set(CPACK_PACKAGE_VERSION_MAJOR "0")
-set(CPACK_PACKAGE_VERSION_MINOR "1")
-set(CPACK_PACKAGE_VERSION_PATCH "0")
-set(CPACK_PACKAGE_VERSION "${CPACK_PACKAGE_VERSION_MAJOR}.${CPACK_PACKAGE_VERSION_MINOR}.${CPACK_PACKAGE_VERSION_PATCH}")
-
-set(CPACK_GENERATOR "IFW;ZIP")
 
 if(WIN32 AND CMAKE_GENERATOR MATCHES "^Visual Studio")
   if(CMAKE_GENERATOR_PLATFORM MATCHES "x64" OR CMAKE_GENERATOR MATCHES "Win64")
@@ -82,7 +77,7 @@ set(CPACK_IFW_PACKAGE_WIZARD_DEFAULT_WIDTH 600)
 set(CPACK_IFW_PACKAGE_WIZARD_DEFAULT_HEIGHT 600)
 
 # See https://gitlab.kitware.com/cmake/cmake/issues/16723
-set(CPACK_IFW_DOWNLOAD_ALL ${VCPKG_BIG_CREATE_ONLINE_INSTALLER})
+set(CPACK_IFW_DOWNLOAD_ALL ${VCPKG_CPACK_IFW_CREATE_ONLINE_INSTALLER})
 
 include(CPack)
 include(CPackIFW)
@@ -155,7 +150,7 @@ endfunction()
 # Select ports and their dependencies
 function(select_ports var) # package;package;...
   unset(${var})
-  foreach(triplet ${VCPKG_BIG_TARGET_TRIPLETS})
+  foreach(triplet ${VCPKG_CPACK_TARGET_TRIPLETS})
 
     unset(found_ports)
     set(ports ${ARGN})
@@ -193,7 +188,7 @@ endfunction()
 # Generate a list of ports installed for at least one architecture
 function(find_installed_ports var)
   unset(${var})
-  foreach(triplet ${VCPKG_BIG_TARGET_TRIPLETS})
+  foreach(triplet ${VCPKG_CPACK_TARGET_TRIPLETS})
     file(GLOB ports
          LIST_DIRECTORIES 1
          RELATIVE "${PACKAGES_DIR}"
@@ -208,19 +203,17 @@ function(find_installed_ports var)
   set(${var} ${${var}} PARENT_SCOPE)
 endfunction()
 
-
-if(NOT DEFINED VCPKG_BIG_TARGET_PORTS)
+if(NOT DEFINED VCPKG_CPACK_TARGET_PORTS)
   find_installed_ports(target_ports)
-  set(VCPKG_BIG_TARGET_PORTS ${target_ports} CACHE STRING "Ports to include in the package")
+  set(VCPKG_CPACK_TARGET_PORTS ${target_ports} CACHE STRING "vcpkg ports to include in the package")
 endif()
 
-select_ports(target_ports ${VCPKG_BIG_TARGET_PORTS})
+select_ports(target_ports ${VCPKG_CPACK_TARGET_PORTS})
 message(STATUS "Selected ports: ${target_ports}")
 
-foreach(triplet ${VCPKG_BIG_TARGET_TRIPLETS})
-
+foreach(triplet ${VCPKG_CPACK_TARGET_TRIPLETS})
   string(REPLACE "-" "_" triplet_comp "${triplet}")
-  if(NOT "${triplet}" STREQUAL "${VCPKG_BIG_TARGET_TRIPLETS}")
+  if(NOT "${triplet}" STREQUAL "${VCPKG_CPACK_TARGET_TRIPLETS}")
     set(group ${triplet_comp})
     cpack_add_component_group(${triplet_comp}
                               DISPLAY_NAME ${triplet}
@@ -315,16 +308,16 @@ foreach(triplet ${VCPKG_BIG_TARGET_TRIPLETS})
                    COPYONLY)
 
     # Hide dependencies from the installer unless explicitly selected
-    option(VCPKG_BIG_DEPENDENCIES_HIDDEN OFF "Hide dependencies components")
+    option(VCPKG_CPACK_DEPENDENCIES_HIDDEN OFF "Hide dependencies components")
     unset(hidden)
-    list(FIND VCPKG_BIG_TARGET_PORTS ${port} res)
-    if(res EQUAL -1 AND VCPKG_BIG_DEPENDENCIES_HIDDEN)
+    list(FIND VCPKG_CPACK_TARGET_PORTS ${port} res)
+    if(res EQUAL -1 AND VCPKG_CPACK_DEPENDENCIES_HIDDEN)
       set(hidden HIDDEN)
     endif()
 
     # Add a CPack component
 	set(component_options "")
-	if(VCPKG_BIG_CREATE_ONLINE_INSTALLER)
+	if(VCPKG_CPACK_IFW_CREATE_ONLINE_INSTALLER)
 	  list(APPEND _component_options DOWNLOADED)
 	  list(APPEND _component_options DISABLED)
 	endif()
@@ -342,7 +335,6 @@ foreach(triplet ${VCPKG_BIG_TARGET_TRIPLETS})
                                   LICENSES ${port}-${triplet} "${CMAKE_BINARY_DIR}/Licenses/${port}-${triplet}")
   endforeach()
   
-  message(STATUS "Adding env variable component")
   # Add cpack generator-indipendent script to add the necessary env variables and remove them 
   install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/addPathsToEnvVariables.ps1 
                 ${CMAKE_CURRENT_SOURCE_DIR}/removePathsFromEnvVariables.ps1
@@ -367,7 +359,7 @@ foreach(triplet ${VCPKG_BIG_TARGET_TRIPLETS})
 endforeach()
 
 # Configure the repository
-if (VCPKG_BIG_CREATE_ONLINE_INSTALLER)
+if (VCPKG_CPACK_IFW_CREATE_ONLINE_INSTALLER)
   cpack_ifw_add_repository(${CPACK_PACKAGE_NAME}-repository
                            # URL FIXME insert the real URL
                            URL "file:///${CMAKE_BINARY_DIR}/_CPack_Packages/${CPACK_SYSTEM_NAME}/IFW/${CPACK_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}-${CPACK_SYSTEM_NAME}/repository"
