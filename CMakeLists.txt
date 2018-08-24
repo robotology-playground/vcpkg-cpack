@@ -56,7 +56,7 @@ set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Robotology Additional Dependencies")
 string(REPLACE "-" "_" CPACK_PACKAGE_NAME_UNDERSCORES ${CPACK_PACKAGE_NAME})
 
 set(CPACK_PACKAGE_VERSION_MAJOR "0")
-set(CPACK_PACKAGE_VERSION_MINOR "3")
+set(CPACK_PACKAGE_VERSION_MINOR "1")
 set(CPACK_PACKAGE_VERSION_PATCH "0")
 set(CPACK_PACKAGE_VERSION "${CPACK_PACKAGE_VERSION_MAJOR}.${CPACK_PACKAGE_VERSION_MINOR}.${CPACK_PACKAGE_VERSION_PATCH}")
 
@@ -343,7 +343,7 @@ foreach(triplet ${VCPKG_BIG_TARGET_TRIPLETS})
   endforeach()
   
   message(STATUS "Adding env variable component")
-  # Install a dummy file in the component to make sure that it is actually generated 
+  # Add cpack generator-indipendent script to add the necessary env variables and remove them 
   install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/addPathsToEnvVariables.ps1 
                 ${CMAKE_CURRENT_SOURCE_DIR}/removePathsFromEnvVariables.ps1
           DESTINATION ${triplet}
@@ -354,10 +354,15 @@ foreach(triplet ${VCPKG_BIG_TARGET_TRIPLETS})
                       DISPLAY_NAME "Update Enviromental Variables for ${triplet_comp}"
                       DESCRIPTION  "Update Enviromental Variables to automatically use the installed software for triplet ${triplet_comp}."
                       GROUP ${group})
+  
+  # Note: @TargetDir@ is actually a IFW macro, and should not be substitued by configure_file 
+  # As a workaround, we define the TargetDir cmake variable as "@TargetDir@", so in  the file @TargetDir@ will be substitued by @TargetDir@
+  set(TargetDir "@TargetDir@")  
+  configure_file(${CMAKE_CURRENT_SOURCE_DIR}/update-env-variables.qs.in ${CMAKE_CURRENT_BINARY_DIR}/update-env-variables-${triplet_comp}.qs @ONLY)
   cpack_ifw_configure_component(update_env_variables_${triplet_comp}
                                 NAME org.${CPACK_PACKAGE_NAME_UNDERSCORES}.installer.${triplet_comp}.update_env_variables
                                 VERSION ${CPACK_PACKAGE_VERSION}
-                                SCRIPT update-env-variables.qs)
+                                SCRIPT ${CMAKE_CURRENT_BINARY_DIR}/update-env-variables-${triplet_comp}.qs)
 
 endforeach()
 
