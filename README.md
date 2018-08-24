@@ -10,11 +10,13 @@ This repo contains a CMake project that be configured to generated arbitrary ins
 
 In particular one can set the following CMake variables to customize the behaviour of the generated installer. 
 The following variables are vcpkg-cpack specific: 
+
 | CMake variable | Description         | 
 |:--------------:|:-------------------:|
 | `VCPKG_ROOT_DIR` | Directory containing the vcpkg installation. | 
 | `VCPKG_CPACK_TARGET_PORTS` | CMake list (;-separated string) of vcpkg ports to include in the installer. If not present, add all the ports contained in the vcpkg installation. | 
 | `VCPKG_CPACK_TARGET_TRIPLETS` |  CMake list (;-separated string) of vcpkg triplets to include in the installer. |
+| `VCPKG_CPACK_IFW_CREATE_ONLINE_INSTALLER` | If using the IFW generator, create an online installer. | 
 
 The other variables are common CPack variables, including:
  
