@@ -15,7 +15,7 @@ endif()
 find_path(VCPKG_ROOT_DIR
           NAMES .vcpkg-root
           PATHS "{VCPKG_ROOT_DIR_CANDIDATE}"
-                ENV VCPKG_ROOT
+          ENV VCPKG_ROOT
           DOC "Vcpkg root directory")
 if(NOT VCPKG_ROOT_DIR)
   message(FATAL_ERROR "VCPKG_ROOT_DIR CMake variable not defined, please define it to point to the vcpkg root directory.")
