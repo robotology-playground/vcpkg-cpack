@@ -3,30 +3,47 @@
 # Authors: Silvio Traversaro, Daniele E. Domenichelli
 # CopyPolicy: Released under the terms of the MIT license, see LICENSE
 
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.12)
 project(vcpkg_cpack NONE)
 
 find_package(GIT)
 
-if(CMAKE_TOOLCHAIN_FILE MATCHES "/scripts/buildsystem/vcpkg.cmake")
-  string(REPLACE "/scripts/buildsystem/vcpkg.cmake" "" VCPKG_ROOT_DIR_CANDIDATE ${CMAKE_TOOLCHAIN_FILE})
+# Download an internal copy of vcpkg using CMake's FetchContent
+include(FetchContent)
+set(VCPKG_GIT_REPOSITORY "https://github.com/Microsoft/vcpkg.git" CACHE STRING "vcpkg git repository to use")
+set(VCPKG_GIT_TAG "2019.08" CACHE STRING "vcpkg git tag/commit to use")
+FetchContent_Declare(
+  vcpkg
+  GIT_REPOSITORY ${VCPKG_GIT_REPOSITORY}
+  GIT_TAG        ${VCPKG_GIT_TAG}
+)
+
+FetchContent_GetProperties(vcpkg)
+if(NOT vcpkg_POPULATED)
+  message(STATUS "Downloading internal vcpkg.")
+  FetchContent_Populate(vcpkg)
+    
+  # Set the location of vcpkg 
+  set(VCPKG_ROOT_DIR "${vcpkg_SOURCE_DIR}" CACHE STRING "Vcpkg directory" FORCE)
+  set(VCPKG_EXECUTABLE "${vcpkg_SOURCE_DIR}/vcpkg.exe" CACHE STRING "Vcpkg executable" FORCE)
+  
+  # Bootstrap vcpkg 
+  if(NOT EXISTS "${VCPKG_EXECUTABLE}")
+    message(STATUS "Bootstraping internal vcpkg because ${VCPKG_EXECUTABLE} does not exist.")
+    execute_process(
+        COMMAND ${vcpkg_SOURCE_DIR}/bootstrap-vcpkg.bat
+        WORKING_DIRECTORY ${vcpkg_SOURCE_DIR}
+        OUTPUT_FILE       ${vcpkg_BINARY_DIR}/vcpkg_bootstrap_output.log
+        ERROR_FILE        ${vcpkg_BINARY_DIR}/vcpkg_bootstrap_output.log
+        RESULT_VARIABLE   result
+    )
+  else()
+    message(STATUS "Internal vcpkg found, no need for bootstraping.")
+  endif()
+  message(STATUS "vcpkg bootstrapping complete")
 endif()
 
-find_path(VCPKG_ROOT_DIR
-          NAMES .vcpkg-root
-          PATHS "{VCPKG_ROOT_DIR_CANDIDATE}"
-          ENV VCPKG_ROOT
-          DOC "Vcpkg root directory")
-if(NOT VCPKG_ROOT_DIR)
-  message(FATAL_ERROR "VCPKG_ROOT_DIR CMake variable not defined, please define it to point to the vcpkg root directory.")
-endif()
-
-find_program(VCPKG_EXECUTABLE
-             NAMES vcpkg
-             PATHS "${VCPKG_ROOT_DIR}"
-             DOC "Vcpkg executable"
-             NO_DEFAULT_PATH)
-
+# Define PACKAGES_DIR
 include(${VCPKG_ROOT_DIR}/scripts/ports.cmake)
 
 unset(default_triplet)
@@ -36,7 +53,7 @@ endif()
 set(VCPKG_CPACK_TARGET_TRIPLETS "${default_triplet}" CACHE STRING "vcpkg triplets to support in the installer")
 
 # User configuration 
-option(VCPKG_CPACK_IFW_CREATE_ONLINE_INSTALLER ON "If using the IFW generator, set to ON to create a online installer, OFF for an offline installer.")
+option(VCPKG_CPACK_IFW_CREATE_ONLINE_INSTALLER OFF "If using the IFW generator, set to ON to create a online installer, OFF for an offline installer.")
 
 set(CPACK_PACKAGE_NAME "vcpkg-cpack-generated-installer" CACHE STRING "CPack Package Name")
 set(CPACK_PACKAGE_VENDOR "vcpkg-cpack Vendor" CACHE STRING "CPack Package Vendor")
@@ -53,7 +70,7 @@ endif()
 
 foreach(triplet ${VCPKG_CPACK_TARGET_TRIPLETS})
   if(NOT EXISTS "${VCPKG_ROOT_DIR}/triplets/${triplet}.cmake")
-    message(FATAL_ERROR "\"${triplet}\" is not a valid triplet")
+    message(FATAL_ERROR "\"${triplet}\" is not a valid triplet because ${VCPKG_ROOT_DIR}/triplets/${triplet}.cmake does not exists.")
   endif()
 endforeach()
 
@@ -91,12 +108,11 @@ cpack_ifw_configure_component_group(root
                                     NAME org.${CPACK_PACKAGE_NAME_UNDERSCORES}.installer)
 set(CPACK_IFW_PACKAGE_GROUP root)
 
-
-# Parse the CONTROL file
-function(parse_control_file port triplet)
+# Parse the CONTROL file contained in packages directory (only possible when a package was already installed)
+function(parse_binary_control_file port triplet)
   set(port_dir "${PACKAGES_DIR}/${port}_${triplet}")
   if(NOT IS_DIRECTORY "${port_dir}")
-    message(SEND_ERROR "${port}_${triplet}: Port is not installed")
+    message(SEND_ERROR "${port}_${triplet}: Port is not installed because ${port_dir} does not exist.")
     return()
   endif()
 
@@ -146,45 +162,6 @@ function(parse_control_file port triplet)
   set(${port}_${triplet}_DESCRIPTION ${description} PARENT_SCOPE)
 endfunction()
 
-
-# Select ports and their dependencies
-function(select_ports var) # package;package;...
-  unset(${var})
-  foreach(triplet ${VCPKG_CPACK_TARGET_TRIPLETS})
-
-    unset(found_ports)
-    set(ports ${ARGN})
-    while(NOT "${ports}" STREQUAL "")
-      unset(dependencies)
-      foreach(port ${ports})
-        parse_control_file(${port} ${triplet})
-        list(APPEND found_ports ${port})
-        list(REMOVE_DUPLICATES found_ports)
-        if(NOT "${${port}_${triplet}_DEPENDS}" STREQUAL "")
-          list(APPEND dependencies ${${port}_${triplet}_DEPENDS})
-          list(APPEND REMOVE_DUPLICATES ${dependencies})
-        endif()
-      endforeach()
-
-      foreach(p ${found_ports})
-        if(NOT "${dependencies}" STREQUAL "")
-          list(REMOVE_ITEM dependencies ${p})
-        endif()
-      endforeach()
-
-      set(ports ${dependencies})
-    endwhile()
-
-    if(NOT "${found_ports}" STREQUAL "")
-      list(APPEND ${var} ${found_ports})
-      list(REMOVE_DUPLICATES ${var})
-    endif()
-  endforeach()
-
-  set(${var} ${${var}} PARENT_SCOPE)
-endfunction()
-
-
 # Generate a list of ports installed for at least one architecture
 function(find_installed_ports var)
   unset(${var})
@@ -203,13 +180,26 @@ function(find_installed_ports var)
   set(${var} ${${var}} PARENT_SCOPE)
 endfunction()
 
-if(NOT DEFINED VCPKG_CPACK_TARGET_PORTS)
-  find_installed_ports(target_ports)
-  set(VCPKG_CPACK_TARGET_PORTS ${target_ports} CACHE STRING "vcpkg ports to include in the package")
-endif()
+message(STATUS "Ports explicitly selected for installation: ${VCPKG_CPACK_TARGET_PORTS}")
 
-select_ports(target_ports ${VCPKG_CPACK_TARGET_PORTS})
-message(STATUS "Selected ports: ${target_ports}")
+# First of all, install all VCPKG_CPACK_TARGET_PORTS for all the requested triplets 
+foreach(triplet ${VCPKG_CPACK_TARGET_TRIPLETS})
+  foreach(port ${VCPKG_CPACK_TARGET_PORTS})
+    message(STATUS "Installing ${port}:${triplet}")
+    execute_process(COMMAND ${VCPKG_EXECUTABLE} install ${port}:${triplet}
+                    WORKING_DIRECTORY "${VCPKG_ROOT_DIR}"
+                    RESULT_VARIABLE res
+                    OUTPUT_QUIET
+                    ERROR_QUIET)
+    if(NOT res EQUAL 0)
+      message(SEND_ERROR "Failed to install ${port}:${triplet}")
+      continue()
+    endif()
+  endforeach()
+endforeach()
+
+# After vcpkg installed the ports, extract the installed ports 
+find_installed_ports(installed_ports)
 
 foreach(triplet ${VCPKG_CPACK_TARGET_TRIPLETS})
   string(REPLACE "-" "_" triplet_comp "${triplet}")
@@ -225,28 +215,8 @@ foreach(triplet ${VCPKG_CPACK_TARGET_TRIPLETS})
     set(group root)
   endif()
 
-  foreach(port ${target_ports})
-
-    # Ensure that the port is available
-    if(NOT IS_DIRECTORY "${PACKAGES_DIR}/${port}_${triplet}")
-#     if(VCPKG_EXECUTABLE)
-#        message(STATUS "Directory \"${PACKAGES_DIR}/${port}_${triplet}\" does not exist. Installing ${port}:${triplet}")
-#        execute_process(COMMAND ${VCPKG_EXECUTABLE} install ${port}:${triplet}
-#                        WORKING_DIRECTORY "${VCPKG_ROOT_DIR}"
-#                        RESULT_VARIABLE res
-#                        OUTPUT_QUIET
-#                        ERROR_QUIET)
-#        if(res EQUAL 0)
-#          message(SEND_ERROR "Failed to install ${port}:${triplet}")
-#          continue()
-#        endif()
-#      else()
-        message(SEND_ERROR "${port}_${triplet}: Port is not installed")
-        continue()
-#      endif()
-    endif()
-
-    parse_control_file(${port} ${triplet})
+  foreach(port ${installed_ports})
+    parse_binary_control_file(${port} ${triplet})
 
     # Ensure that the package is identical for all the triplets
     foreach(var VERSION
