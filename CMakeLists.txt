@@ -44,6 +44,7 @@ if(NOT vcpkg_POPULATED)
 endif()
 
 # Define PACKAGES_DIR
+set(TARGET_TRIPLET_FILE ${VCPKG_ROOT_DIR}/scripts/ports.cmake)
 include(${VCPKG_ROOT_DIR}/scripts/ports.cmake)
 
 unset(default_triplet)
