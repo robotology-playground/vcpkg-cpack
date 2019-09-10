@@ -187,7 +187,7 @@ message(STATUS "Ports explicitly selected for installation: ${VCPKG_CPACK_TARGET
 foreach(triplet ${VCPKG_CPACK_TARGET_TRIPLETS})
   foreach(port ${VCPKG_CPACK_TARGET_PORTS})
     message(STATUS "Installing ${port}:${triplet}")
-    execute_process(COMMAND ${VCPKG_EXECUTABLE} install ${port}:${triplet}
+    execute_process(COMMAND ${VCPKG_EXECUTABLE} install ${port}:${triplet} ${VCPKG_ADDITIONAL_OPTIONS}
                     WORKING_DIRECTORY "${VCPKG_ROOT_DIR}"
                     RESULT_VARIABLE res
                     OUTPUT_QUIET

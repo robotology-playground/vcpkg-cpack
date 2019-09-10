@@ -16,6 +16,7 @@ The following variables are vcpkg-cpack specific:
 |:--------------:|:-------------------:|:-------------------:|
 | `VCPKG_GIT_REPOSITORY` | vcpkg git repository. | https://github.com/Microsoft/vcpkg.git | 
 | `VCPKG_GIT_TAG`        | vcpkg tag/commit to use. | `2019.08` | 
+| `VCPKG_ADDITIONAL_OPTIONS` | Additional command line options passed to each vcpkg invocation (useful to specify [ports overlay](https://github.com/microsoft/vcpkg/blob/master/docs/specifications/ports-overlay.md) ) | | 
 | `VCPKG_CPACK_TARGET_PORTS` | CMake list (;-separated string) of vcpkg ports to include in the installer. | |
 | `VCPKG_CPACK_TARGET_TRIPLETS` |  CMake list (;-separated string) of vcpkg triplets to include in the installer. | |
 | `VCPKG_CPACK_IFW_CREATE_ONLINE_INSTALLER` | If using the IFW generator, create an online installer (note: experimental option). | `OFF` |
