@@ -10,17 +10,11 @@ find_package(GIT)
 
 option(VCPKG_CPACK_USE_EXTERNAL_VCPKG OFF "If OFF, vcpkg-cpack will automatically download a vcpkg copy. If ON, the user provides it via the VCPKG_ROOT_DIR var.")
 
-
 if(VCPKG_CPACK_USE_EXTERNAL_VCPKG)
   if(CMAKE_TOOLCHAIN_FILE MATCHES "/scripts/buildsystem/vcpkg.cmake")
-    string(REPLACE "/scripts/buildsystem/vcpkg.cmake" "" VCPKG_ROOT_DIR_CANDIDATE ${CMAKE_TOOLCHAIN_FILE})
+    string(REPLACE "/scripts/buildsystem/vcpkg.cmake" "" VCPKG_ROOT_DIR ${CMAKE_TOOLCHAIN_FILE})
   endif()
 
-  find_path(VCPKG_ROOT_DIR
-            NAMES .vcpkg-root
-            PATHS "{VCPKG_ROOT_DIR_CANDIDATE}"
-            ENV VCPKG_ROOT
-            DOC "Vcpkg root directory")
   if(NOT VCPKG_ROOT_DIR)
     message(FATAL_ERROR "VCPKG_ROOT_DIR CMake variable not defined, please define it to point to the vcpkg root directory.")
   endif()
