@@ -8,39 +8,65 @@ project(vcpkg_cpack NONE)
 
 find_package(GIT)
 
-# Download an internal copy of vcpkg using CMake's FetchContent
-include(FetchContent)
-set(VCPKG_GIT_REPOSITORY "https://github.com/Microsoft/vcpkg.git" CACHE STRING "vcpkg git repository to use")
-set(VCPKG_GIT_TAG "2019.08" CACHE STRING "vcpkg git tag/commit to use")
-FetchContent_Declare(
-  vcpkg
-  GIT_REPOSITORY ${VCPKG_GIT_REPOSITORY}
-  GIT_TAG        ${VCPKG_GIT_TAG}
-)
+option(VCPKG_CPACK_USE_EXTERNAL_VCPKG OFF "If OFF, vcpkg-cpack will automatically download a vcpkg copy. If ON, the user provides it via the VCPKG_ROOT_DIR var.")
 
-FetchContent_GetProperties(vcpkg)
-if(NOT vcpkg_POPULATED)
-  message(STATUS "Downloading internal vcpkg.")
-  FetchContent_Populate(vcpkg)
-    
-  # Set the location of vcpkg 
-  set(VCPKG_ROOT_DIR "${vcpkg_SOURCE_DIR}" CACHE STRING "Vcpkg directory" FORCE)
-  set(VCPKG_EXECUTABLE "${vcpkg_SOURCE_DIR}/vcpkg.exe" CACHE STRING "Vcpkg executable" FORCE)
-  
-  # Bootstrap vcpkg 
-  if(NOT EXISTS "${VCPKG_EXECUTABLE}")
-    message(STATUS "Bootstraping internal vcpkg because ${VCPKG_EXECUTABLE} does not exist.")
-    execute_process(
-        COMMAND ${vcpkg_SOURCE_DIR}/bootstrap-vcpkg.bat
-        WORKING_DIRECTORY ${vcpkg_SOURCE_DIR}
-        OUTPUT_FILE       ${vcpkg_BINARY_DIR}/vcpkg_bootstrap_output.log
-        ERROR_FILE        ${vcpkg_BINARY_DIR}/vcpkg_bootstrap_output.log
-        RESULT_VARIABLE   result
-    )
-  else()
-    message(STATUS "Internal vcpkg found, no need for bootstraping.")
+
+if(VCPKG_CPACK_USE_EXTERNAL_VCPKG)
+  if(CMAKE_TOOLCHAIN_FILE MATCHES "/scripts/buildsystem/vcpkg.cmake")
+    string(REPLACE "/scripts/buildsystem/vcpkg.cmake" "" VCPKG_ROOT_DIR_CANDIDATE ${CMAKE_TOOLCHAIN_FILE})
   endif()
-  message(STATUS "vcpkg bootstrapping complete")
+
+  find_path(VCPKG_ROOT_DIR
+            NAMES .vcpkg-root
+            PATHS "{VCPKG_ROOT_DIR_CANDIDATE}"
+            ENV VCPKG_ROOT
+            DOC "Vcpkg root directory")
+  if(NOT VCPKG_ROOT_DIR)
+    message(FATAL_ERROR "VCPKG_ROOT_DIR CMake variable not defined, please define it to point to the vcpkg root directory.")
+  endif()
+
+  find_program(VCPKG_EXECUTABLE
+               NAMES vcpkg
+               PATHS "${VCPKG_ROOT_DIR}"
+               DOC "Vcpkg executable"
+               NO_DEFAULT_PATH)
+else()
+  # Download an internal copy of vcpkg using CMake's FetchContent
+  include(FetchContent)
+  set(VCPKG_GIT_REPOSITORY "https://github.com/Microsoft/vcpkg.git" CACHE STRING "vcpkg git repository to use")
+  set(VCPKG_GIT_TAG "2019.08" CACHE STRING "vcpkg git tag/commit to use")
+  FetchContent_Declare(
+    vcpkg
+    GIT_REPOSITORY ${VCPKG_GIT_REPOSITORY}
+    GIT_TAG        ${VCPKG_GIT_TAG}
+  )
+
+
+
+  FetchContent_GetProperties(vcpkg)
+  if(NOT vcpkg_POPULATED)
+    message(STATUS "Downloading internal vcpkg.")
+    FetchContent_Populate(vcpkg)
+    
+    # Set the location of vcpkg 
+    set(VCPKG_ROOT_DIR "${vcpkg_SOURCE_DIR}" CACHE STRING "Vcpkg directory" FORCE)
+    set(VCPKG_EXECUTABLE "${vcpkg_SOURCE_DIR}/vcpkg.exe" CACHE STRING "Vcpkg executable" FORCE)
+  
+    # Bootstrap vcpkg 
+    if(NOT EXISTS "${VCPKG_EXECUTABLE}")
+      message(STATUS "Bootstraping internal vcpkg because ${VCPKG_EXECUTABLE} does not exist.")
+      execute_process(
+          COMMAND ${vcpkg_SOURCE_DIR}/bootstrap-vcpkg.bat
+          WORKING_DIRECTORY ${vcpkg_SOURCE_DIR}
+          OUTPUT_FILE       ${vcpkg_BINARY_DIR}/vcpkg_bootstrap_output.log
+          ERROR_FILE        ${vcpkg_BINARY_DIR}/vcpkg_bootstrap_output.log
+          RESULT_VARIABLE   result
+      )
+    else()
+      message(STATUS "Internal vcpkg found, no need for bootstraping.")
+    endif()
+    message(STATUS "vcpkg bootstrapping complete")
+  endif()
 endif()
 
 # Define PACKAGES_DIR
