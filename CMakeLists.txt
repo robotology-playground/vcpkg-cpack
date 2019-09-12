@@ -294,7 +294,12 @@ foreach(triplet ${VCPKG_CPACK_TARGET_TRIPLETS})
     install(DIRECTORY ${dirs}
             DESTINATION ${triplet}
             COMPONENT ${component}_${triplet_comp})
-    configure_file("${PACKAGES_DIR}/${port}_${triplet}/share/${port}/copyright"
+    if(EXISTS "${PACKAGES_DIR}/${port}_${triplet}/share/${port}/copyright")
+      set(port_license_file "${PACKAGES_DIR}/${port}_${triplet}/share/${port}/copyright")
+    else()
+      set(port_license_file "${VCPKG_ROOT_DIR}/LICENSE.txt")
+    endif()
+    configure_file("${port_license_file}"
                    "${CMAKE_BINARY_DIR}/Licenses/${port}-${triplet}"
                    COPYONLY)
 
