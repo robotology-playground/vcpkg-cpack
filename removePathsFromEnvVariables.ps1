@@ -13,7 +13,7 @@ $newVar = ($currVar.Split(';') | Where-Object { $_ -ne $installPrefix + '\debug'
 
 Write-Host 'Removing ' + $installPrefix + '\debug\bin from the Path User enviroment variable.'
 $currVar = [System.Environment]::GetEnvironmentVariable('Path', 'User');
-$newVar = ($curVarr.Split(';') | Where-Object { $_ -ne $installPrefix + '\debug\bin' }) -join ';';
+$newVar = ($currVar.Split(';') | Where-Object { $_ -ne $installPrefix + '\debug\bin' }) -join ';';
 [System.Environment]::SetEnvironmentVariable('Path', $newVar, 'User');
 
 Write-Host 'Removing ' + $installPrefix + '\bin from the Path User enviroment variable.'
