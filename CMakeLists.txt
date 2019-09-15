@@ -65,6 +65,7 @@ endif()
 
 # Define PACKAGES_DIR
 set(TARGET_TRIPLET_FILE ${VCPKG_ROOT_DIR}/scripts/ports.cmake)
+set(VCPKG_ROOT_PATH ${VCPKG_ROOT_DIR})
 include(${VCPKG_ROOT_DIR}/scripts/ports.cmake)
 
 unset(default_triplet)
