@@ -184,6 +184,43 @@ function(parse_binary_control_file port triplet)
   set(${port}_${triplet}_DESCRIPTION ${description} PARENT_SCOPE)
 endfunction()
 
+# Select ports and their dependencies
+function(select_ports var) # package;package;...
+  unset(${var})
+  foreach(triplet ${VCPKG_CPACK_TARGET_TRIPLETS})
+
+    unset(found_ports)
+    set(ports ${ARGN})
+    while(NOT "${ports}" STREQUAL "")
+      unset(dependencies)
+      foreach(port ${ports})
+        parse_binary_control_file(${port} ${triplet})
+        list(APPEND found_ports ${port})
+        list(REMOVE_DUPLICATES found_ports)
+        if(NOT "${${port}_${triplet}_DEPENDS}" STREQUAL "")
+          list(APPEND dependencies ${${port}_${triplet}_DEPENDS})
+          list(APPEND REMOVE_DUPLICATES ${dependencies})
+        endif()
+      endforeach()
+
+      foreach(p ${found_ports})
+        if(NOT "${dependencies}" STREQUAL "")
+          list(REMOVE_ITEM dependencies ${p})
+        endif()
+      endforeach()
+
+      set(ports ${dependencies})
+    endwhile()
+
+    if(NOT "${found_ports}" STREQUAL "")
+      list(APPEND ${var} ${found_ports})
+      list(REMOVE_DUPLICATES ${var})
+    endif()
+  endforeach()
+
+  set(${var} ${${var}} PARENT_SCOPE)
+endfunction()
+
 # Generate a list of ports installed for at least one architecture
 function(find_installed_ports var)
   unset(${var})
@@ -220,8 +257,8 @@ foreach(triplet ${VCPKG_CPACK_TARGET_TRIPLETS})
   endforeach()
 endforeach()
 
-# After vcpkg installed the ports, extract the installed ports 
-find_installed_ports(installed_ports)
+# After vcpkg installed the ports, extract the selected ports and their dependency 
+select_ports(target_ports ${VCPKG_CPACK_TARGET_PORTS})
 
 foreach(triplet ${VCPKG_CPACK_TARGET_TRIPLETS})
   string(REPLACE "-" "_" triplet_comp "${triplet}")
@@ -237,7 +274,7 @@ foreach(triplet ${VCPKG_CPACK_TARGET_TRIPLETS})
     set(group root)
   endif()
 
-  foreach(port ${installed_ports})
+  foreach(port ${target_ports})
     parse_binary_control_file(${port} ${triplet})
 
     # Ensure that the package is identical for all the triplets
