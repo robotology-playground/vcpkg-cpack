@@ -171,6 +171,8 @@ function(parse_binary_control_file port triplet)
     string(REGEX REPLACE ".*Depends: ([^;]+).*" "\\1" depends "${control_contents}")
     string(REPLACE "," ";" depends "${depends}")
     string(REPLACE " " "" depends "${depends}")
+    # Temporary workaround for packages that depend on specific features of other ports
+    string(REGEX REPLACE "\\[.*\\]" "" depends "${depends}")
   else()
     set(depends "")
   endif()
